@@ -1,5 +1,6 @@
 import { pathToFileURL } from 'node:url'
 import { serve } from '@hono/node-server'
+import { serveStatic } from '@hono/node-server/serve-static'
 import { Hono } from 'hono'
 import { Pool } from 'pg'
 import type { AppEnv } from './app-env'
@@ -296,6 +297,15 @@ async function bootstrap() {
       )
     },
   })
+  // Serve the built SPA (vite build -> dist/) from the same process in production.
+  if (process.env.SERVE_STATIC_DIR) {
+    const root = process.env.SERVE_STATIC_DIR
+    app.use('/*', serveStatic({ root }))
+    app.get('*', async (c, next) => {
+      if (c.req.path.startsWith('/api/')) return next()
+      return serveStatic({ root, path: 'index.html' })(c, next)
+    })
+  }
   serve({ fetch: app.fetch, port: config.PORT })
   console.log(`openlevel api listening on :${config.PORT}`)
 }
